@@ -1,0 +1,31 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Inter:wght@400;500;600&display=swap');
+@import 'tailwindcss';
+
+:root {
+  --background-color: #F5F2E8;
+  --text-color: #2C2C2C;
+  --heading-color: #D67C3A;
+  --link-color: #D67C3A;
+  --visited-color: #A65D2A;
+  --code-background-color: #E8E4D8;
+  --border-color: #d4d0c4;
+  --muted-color: #888;
+  --success-color: #2e7d32;
+  --error-color: #c62828;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 1.25em;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  line-height: 1.8;
+  letter-spacing: 0.01em;
+}
+
+@media (max-width: 767px) {
+  body {
+    font-size: 1em;
+    line-height: 1.7;
+  }
+}
