@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "LLM Chat",
-  description: "Password-protected LLM chat app",
+  title: "LLM Utilities",
+  description: "Personal AI-powered tools",
 };
 
 export default function RootLayout({

@@ -40,7 +40,7 @@ function LoginForm() {
             textAlign: "center",
           }}
         >
-          LLM Chat
+          LLM Utilities
         </h1>
         <p
           style={{
