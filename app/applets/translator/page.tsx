@@ -2,11 +2,29 @@
 
 import { useState, useRef } from "react";
 
-const TONES = ["Professional", "Friendly", "Direct", "Empathetic"] as const;
+const LANGUAGES = [
+  "Spanish",
+  "French",
+  "German",
+  "Portuguese",
+  "Italian",
+  "Dutch",
+  "Russian",
+  "Japanese",
+  "Korean",
+  "Chinese (Simplified)",
+  "Chinese (Traditional)",
+  "Arabic",
+  "Hindi",
+  "Turkish",
+  "Polish",
+  "Swedish",
+  "Hebrew",
+] as const;
 
-export default function ToneShifterPage() {
+export default function TranslatorPage() {
   const [input, setInput] = useState("");
-  const [tone, setTone] = useState<string>("Professional");
+  const [language, setLanguage] = useState<string>("Spanish");
   const [output, setOutput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -20,10 +38,10 @@ export default function ToneShifterPage() {
     abortRef.current = new AbortController();
 
     try {
-      const response = await fetch("/applets/tone-shifter/api", {
+      const response = await fetch("/applets/translator/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: input, tone }),
+        body: JSON.stringify({ prompt: input, language }),
         signal: abortRef.current.signal,
       });
 
@@ -71,7 +89,7 @@ export default function ToneShifterPage() {
             margin: "0 0 4px 0",
           }}
         >
-          Tone Shifter
+          Translator
         </h1>
         <p
           style={{
@@ -80,45 +98,53 @@ export default function ToneShifterPage() {
             margin: 0,
           }}
         >
-          Rewrite any text in a different tone.
+          Translate text into another language.
         </p>
       </div>
 
       <form
         onSubmit={handleSubmit}
-        style={{ display: "flex", flexDirection: "column", gap: "12px", flex: 1, minHeight: 0 }}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "12px",
+          flex: 1,
+          minHeight: 0,
+        }}
       >
-        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-          {TONES.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTone(t)}
-              style={{
-                padding: "6px 14px",
-                borderRadius: "20px",
-                border: "2px solid",
-                borderColor:
-                  tone === t ? "var(--heading-color)" : "var(--border-color)",
-                backgroundColor:
-                  tone === t ? "var(--heading-color)" : "transparent",
-                color: tone === t ? "#fff" : "var(--text-color)",
-                fontSize: "0.75em",
-                fontWeight: 500,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                transition: "all 0.15s ease",
-              }}
-            >
-              {t}
-            </button>
+        <select
+          value={language}
+          onChange={(e) => setLanguage(e.target.value)}
+          style={{
+            padding: "10px 14px",
+            border: "2px solid var(--border-color)",
+            borderRadius: "6px",
+            backgroundColor: "var(--background-color)",
+            color: "var(--text-color)",
+            fontFamily: "inherit",
+            fontSize: "0.85em",
+            outline: "none",
+            cursor: "pointer",
+            transition: "border-color 0.2s ease",
+          }}
+          onFocus={(e) =>
+            (e.target.style.borderColor = "var(--heading-color)")
+          }
+          onBlur={(e) =>
+            (e.target.style.borderColor = "var(--border-color)")
+          }
+        >
+          {LANGUAGES.map((lang) => (
+            <option key={lang} value={lang}>
+              {lang}
+            </option>
           ))}
-        </div>
+        </select>
 
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Paste the text you want to rewrite..."
+          placeholder="Enter text to translate..."
           style={{
             flex: 1,
             minHeight: "120px",
@@ -179,7 +205,7 @@ export default function ToneShifterPage() {
                 fontFamily: "inherit",
               }}
             >
-              Rewrite
+              Translate
             </button>
           )}
         </div>
