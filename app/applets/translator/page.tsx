@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import posthog from "posthog-js";
 
 const LANGUAGES = [
   "Spanish",
@@ -33,6 +34,11 @@ export default function TranslatorPage() {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
+    posthog.capture("translation_submitted", {
+      target_language: language,
+      input_length: input.trim().length,
+    });
+
     setIsLoading(true);
     setOutput("");
     abortRef.current = new AbortController();
@@ -63,6 +69,9 @@ export default function TranslatorPage() {
   }
 
   function handleStop() {
+    posthog.capture("translation_stopped", {
+      target_language: language,
+    });
     abortRef.current?.abort();
     setIsLoading(false);
   }

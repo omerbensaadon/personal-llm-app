@@ -3,6 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useState, useRef, useEffect, useMemo } from "react";
+import posthog from "posthog-js";
 
 export default function ChatPage() {
   const transport = useMemo(
@@ -25,8 +26,21 @@ export default function ChatPage() {
     e.preventDefault();
     const text = input.trim();
     if (!text || isLoading) return;
+
+    posthog.capture("chat_message_sent", {
+      message_length: text.length,
+      conversation_length: messages.length,
+    });
+
     setInput("");
     await sendMessage({ text });
+  }
+
+  function handleStop() {
+    posthog.capture("chat_response_stopped", {
+      conversation_length: messages.length,
+    });
+    stop();
   }
 
   return (
@@ -154,7 +168,7 @@ export default function ChatPage() {
           {isLoading ? (
             <button
               type="button"
-              onClick={() => stop()}
+              onClick={handleStop}
               style={{
                 padding: "10px 24px",
                 backgroundColor: "transparent",

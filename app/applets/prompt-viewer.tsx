@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
+import posthog from "posthog-js";
 
 export function PromptViewer() {
   const [isOpen, setIsOpen] = useState(false);
@@ -12,6 +13,9 @@ export function PromptViewer() {
 
   async function togglePrompt() {
     if (!isOpen && prompt === null) {
+      posthog.capture("prompt_viewed", {
+        applet: appletName,
+      });
       const res = await fetch(`/api/prompt?applet=${appletName}`);
       if (res.ok) {
         setPrompt(await res.text());

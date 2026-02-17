@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { applets } from "@/lib/registry";
+import { AppletLink } from "./applet-link";
 
 export default function HomePage() {
   return (
@@ -44,47 +44,7 @@ export default function HomePage() {
         }}
       >
         {applets.map((applet) => (
-          <Link
-            key={applet.path}
-            href={applet.path}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "8px",
-              textDecoration: "none",
-              padding: "8px",
-              borderRadius: "12px",
-              transition: "transform 0.15s ease",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "2.2em",
-                width: "60px",
-                height: "60px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: "var(--code-background-color)",
-                borderRadius: "14px",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-              }}
-            >
-              {applet.icon}
-            </div>
-            <span
-              style={{
-                fontSize: "0.65em",
-                color: "var(--text-color)",
-                textAlign: "center",
-                lineHeight: 1.3,
-                fontWeight: 500,
-              }}
-            >
-              {applet.name}
-            </span>
-          </Link>
+          <AppletLink key={applet.path} applet={applet} />
         ))}
       </div>
     </div>

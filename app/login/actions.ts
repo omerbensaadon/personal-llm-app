@@ -3,6 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { rateLimit } from "@/lib/rate-limit";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 const LOGIN_LIMIT = 3; // max attempts
 const LOGIN_WINDOW_MS = 15 * 60 * 1000; // per 15 minutes
@@ -48,14 +49,40 @@ export async function authenticate(
     LOGIN_WINDOW_MS
   );
 
+  const posthog = getPostHogClient();
+
   if (!allowed) {
     const minutes = Math.ceil(retryAfterSeconds / 60);
+    posthog.capture({
+      distinctId: ip,
+      event: "login_failed",
+      properties: {
+        reason: "rate_limited",
+        retry_after_seconds: retryAfterSeconds,
+      },
+    });
     return { error: `Too many login attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.` };
   }
 
   if (password !== process.env.APP_PASSWORD) {
+    posthog.capture({
+      distinctId: ip,
+      event: "login_failed",
+      properties: {
+        reason: "wrong_password",
+      },
+    });
     return { error: "Wrong password." };
   }
+
+  // Capture successful login event
+  posthog.capture({
+    distinctId: ip,
+    event: "login_succeeded",
+    properties: {
+      redirect_to: redirectTo,
+    },
+  });
 
   const cookieStore = await cookies();
   cookieStore.set("llm-auth", await getHmacValue(), {

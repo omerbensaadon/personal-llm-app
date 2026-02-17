@@ -1,6 +1,7 @@
 import { getModel } from "@/lib/llm";
 import { getPrompt } from "@/lib/prompts";
 import { rateLimit } from "@/lib/rate-limit";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { streamText } from "ai";
 
 const API_LIMIT = 20; // max requests
@@ -23,6 +24,17 @@ export async function POST(req: Request) {
   }
 
   const { prompt, language } = await req.json();
+
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: ip,
+    event: "translation_api_request",
+    properties: {
+      target_language: language,
+      input_length: prompt?.length || 0,
+      applet: "translator",
+    },
+  });
 
   const result = streamText({
     model: getModel(),
