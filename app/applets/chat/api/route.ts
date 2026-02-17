@@ -2,8 +2,6 @@ import { getModel } from "@/lib/llm";
 import { getPrompt } from "@/lib/prompts";
 import { streamText, type UIMessage, convertToModelMessages } from "ai";
 
-export const runtime = "edge";
-
 export async function POST(req: Request) {
   const { messages }: { messages: UIMessage[] } = await req.json();
 
