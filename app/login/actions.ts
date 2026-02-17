@@ -4,7 +4,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { rateLimit } from "@/lib/rate-limit";
 
-const LOGIN_LIMIT = 5; // max attempts
+const LOGIN_LIMIT = 3; // max attempts
 const LOGIN_WINDOW_MS = 15 * 60 * 1000; // per 15 minutes
 
 async function getClientIp(): Promise<string> {
