@@ -14,7 +14,7 @@
     "@ai-sdk/anthropic": "^3",
     "@ai-sdk/react": "^3",
     "ai": "^6",
-    "next": "^15",
+    "next": "^15.5.12",
     "react": "^19",
     "react-dom": "^19"
   },
@@ -23,6 +23,7 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "raw-loader": "^4.0.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
