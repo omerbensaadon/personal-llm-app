@@ -1,8 +1,6 @@
 import { prompts } from "@/lib/prompts";
 import { type NextRequest } from "next/server";
 
-export const runtime = "edge";
-
 export function GET(req: NextRequest) {
   const applet = req.nextUrl.searchParams.get("applet");
 
