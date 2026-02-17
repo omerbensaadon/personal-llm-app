@@ -1,5 +1,7 @@
-import { readPrompt } from "@/lib/prompts";
+import { prompts } from "@/lib/prompts";
 import { type NextRequest } from "next/server";
+
+export const runtime = "edge";
 
 export function GET(req: NextRequest) {
   const applet = req.nextUrl.searchParams.get("applet");
@@ -8,12 +10,13 @@ export function GET(req: NextRequest) {
     return new Response("Invalid applet name", { status: 400 });
   }
 
-  try {
-    const prompt = readPrompt(applet);
-    return new Response(prompt, {
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    });
-  } catch {
+  const prompt = prompts[applet];
+
+  if (!prompt) {
     return new Response("Prompt not found", { status: 404 });
   }
+
+  return new Response(prompt, {
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+  });
 }
