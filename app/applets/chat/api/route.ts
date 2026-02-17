@@ -1,15 +1,15 @@
 import { getModel } from "@/lib/llm";
-import { readPrompt } from "@/lib/prompts";
+import { getPrompt } from "@/lib/prompts";
 import { streamText, type UIMessage, convertToModelMessages } from "ai";
 
-export const maxDuration = 60;
+export const runtime = "edge";
 
 export async function POST(req: Request) {
   const { messages }: { messages: UIMessage[] } = await req.json();
 
   const result = streamText({
     model: getModel(),
-    system: readPrompt("chat"),
+    system: getPrompt("chat"),
     messages: await convertToModelMessages(messages),
   });
 
