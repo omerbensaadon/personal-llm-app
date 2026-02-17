@@ -12,12 +12,6 @@ export function rateLimit(
   const now = Date.now();
   const entry = store.get(key);
 
-  // Evict stale entries when the store grows large
-  if (store.size > 10_000) {
-    for (const [k, v] of store) {
-      if (now > v.resetTime) store.delete(k);
-    }
-  }
 
   if (!entry || now > entry.resetTime) {
     store.set(key, { count: 1, resetTime: now + windowMs });
