@@ -332,7 +332,7 @@ export default function ThesaurusPage() {
   }
 
   return (
-    <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
+    <div style={{ display: "flex", height: "100%", overflow: "hidden", position: "relative" }}>
       {/* Sidebar: word history */}
       {entries.length > 0 && (
         <aside
@@ -720,9 +720,9 @@ export default function ThesaurusPage() {
         disabled={isNewPage}
         title="New lookup"
         style={{
-          position: "fixed",
-          top: "28px",
-          right: "28px",
+          position: "absolute",
+          top: "16px",
+          right: "16px",
           width: "56px",
           height: "56px",
           borderRadius: "50%",
