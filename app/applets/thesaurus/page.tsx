@@ -721,8 +721,8 @@ export default function ThesaurusPage() {
         title="New lookup"
         style={{
           position: "absolute",
-          top: "16px",
-          right: "16px",
+          top: "42px",
+          right: "42px",
           width: "56px",
           height: "56px",
           borderRadius: "50%",
