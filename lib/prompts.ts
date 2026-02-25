@@ -1,9 +1,11 @@
 import chatPrompt from "@/app/applets/chat/prompt.md";
 import translatorPrompt from "@/app/applets/translator/prompt.md";
+import thesaurusPrompt from "@/app/applets/thesaurus/prompt.md";
 
 export const prompts: Record<string, string> = {
   chat: chatPrompt,
   translator: translatorPrompt,
+  thesaurus: thesaurusPrompt,
 };
 
 export function getPrompt(appletName: string): string {
