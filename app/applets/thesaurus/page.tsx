@@ -69,7 +69,14 @@ function groupEntriesByTime(entries: ThesaurusEntry[]): TimeGroup[] {
     }
   }
 
-  return groups.filter((g) => g.entries.length > 0);
+  const nonEmpty = groups.filter((g) => g.entries.length > 0);
+
+  // If only one time group has entries, use a generic label
+  if (nonEmpty.length === 1) {
+    nonEmpty[0].label = "Previous lookups";
+  }
+
+  return nonEmpty;
 }
 
 export default function ThesaurusPage() {
@@ -83,6 +90,7 @@ export default function ThesaurusPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewWordModal, setShowNewWordModal] = useState(false);
   const [modalInput, setModalInput] = useState("");
+  const [hoveredEntryId, setHoveredEntryId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const modalInputRef = useRef<HTMLInputElement>(null);
   const lookupInputRef = useRef<HTMLInputElement>(null);
@@ -147,6 +155,39 @@ export default function ThesaurusPage() {
     setSelectedId(entry.id);
     setViewAttemptIndex(Math.max(0, entry.attempts.length - 1));
     setRefinementInput("");
+  }
+
+  function handleDeleteEntry(entryId: string) {
+    if (entryId === selectedId && isLoading) {
+      abortRef.current?.abort();
+      setIsLoading(false);
+      setStreamingText("");
+    }
+
+    posthog.capture("thesaurus_delete");
+
+    setEntries((prev) => {
+      const index = prev.findIndex((e) => e.id === entryId);
+      const updated = prev.filter((e) => e.id !== entryId);
+      saveEntries(updated);
+
+      // If we just deleted the selected entry, pick a new selection
+      if (entryId === selectedId) {
+        if (updated.length === 0) {
+          setSelectedId(null);
+          setViewAttemptIndex(0);
+          setWordInput("");
+        } else {
+          // Select the entry that now occupies the same position, or the last one
+          const next = updated[Math.min(index, updated.length - 1)];
+          setSelectedId(next.id);
+          setViewAttemptIndex(Math.max(0, next.attempts.length - 1));
+        }
+        setRefinementInput("");
+      }
+
+      return updated;
+    });
   }
 
   async function doStream(
@@ -388,39 +429,92 @@ export default function ThesaurusPage() {
                 </div>
                 {group.entries.map((entry) => {
                   const isSelected = entry.id === selectedId;
+                  const isHovered = entry.id === hoveredEntryId;
                   return (
-                    <button
+                    <div
                       key={entry.id}
-                      onClick={() => handleSelectEntry(entry)}
+                      onMouseEnter={() => setHoveredEntryId(entry.id)}
+                      onMouseLeave={() => setHoveredEntryId(null)}
                       style={{
-                        display: "block",
-                        width: "100%",
-                        textAlign: "left",
-                        padding: "5px 14px",
-                        background: isSelected ? "var(--code-background-color)" : "transparent",
-                        border: "none",
-                        borderLeft: isSelected
-                          ? "3px solid var(--heading-color)"
-                          : "3px solid transparent",
-                        cursor: "pointer",
-                        fontFamily: "inherit",
-                        transition: "background 0.15s ease",
-                        overflow: "hidden",
+                        position: "relative",
+                        display: "flex",
+                        alignItems: "center",
                       }}
                     >
-                      <div
+                      <button
+                        onClick={() => handleSelectEntry(entry)}
                         style={{
-                          fontSize: "0.75em",
-                          color: isSelected ? "var(--text-color)" : "var(--muted-color)",
+                          display: "block",
+                          width: "100%",
+                          textAlign: "left",
+                          padding: "5px 14px",
+                          paddingRight: "28px",
+                          background: isSelected ? "var(--code-background-color)" : "transparent",
+                          border: "none",
+                          borderLeft: isSelected
+                            ? "3px solid var(--heading-color)"
+                            : "3px solid transparent",
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          transition: "background 0.15s ease",
                           overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          fontWeight: isSelected ? 500 : 400,
                         }}
                       >
-                        {entry.word}
-                      </div>
-                    </button>
+                        <div
+                          style={{
+                            fontSize: "0.75em",
+                            color: isSelected ? "var(--text-color)" : "var(--muted-color)",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            fontWeight: isSelected ? 500 : 400,
+                          }}
+                        >
+                          {entry.word}
+                        </div>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteEntry(entry.id);
+                        }}
+                        title="Delete entry"
+                        style={{
+                          position: "absolute",
+                          right: "8px",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          width: "18px",
+                          height: "18px",
+                          padding: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "none",
+                          border: "none",
+                          borderRadius: "3px",
+                          cursor: "pointer",
+                          color: "var(--muted-color)",
+                          fontSize: "0.7em",
+                          lineHeight: 1,
+                          opacity: isHovered ? 1 : 0,
+                          transition: "opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease",
+                          pointerEvents: isHovered ? "auto" : "none",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = "var(--error-color)";
+                          e.currentTarget.style.backgroundColor = "rgba(198, 40, 40, 0.1)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = "var(--muted-color)";
+                          e.currentTarget.style.backgroundColor = "transparent";
+                        }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M2 4h12M5.333 4V2.667a1.333 1.333 0 0 1 1.334-1.334h2.666a1.333 1.333 0 0 1 1.334 1.334V4M6.667 7.333v4M9.333 7.333v4M12.667 4v9.333a1.333 1.333 0 0 1-1.334 1.334H4.667a1.333 1.333 0 0 1-1.334-1.334V4" />
+                        </svg>
+                      </button>
+                    </div>
                   );
                 })}
               </div>

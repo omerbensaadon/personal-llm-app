@@ -57,6 +57,7 @@ interface ThesaurusEntry {
 - Entries grouped by time: "In the last few hours" (<3h), "In the last few days" (<7d), "In the last few weeks" (older)
 - Clicking an entry selects it and shows its latest attempt
 - Pagination controls (← →) navigate between attempts for entries with multiple refinements
+- **Delete**: Hovering an entry reveals a "✕" button on the right. Clicking it removes the entry from state and localStorage. If the deleted entry was selected, the next entry in the list is auto-selected (or the view resets to the blank lookup page if no entries remain). Aborts any in-progress stream for the deleted entry.
 
 **HTML title**: Set to "Thesaurus" via `document.title` in a `useEffect` (client component, can't use Next.js metadata export).
 
