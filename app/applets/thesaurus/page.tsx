@@ -69,7 +69,14 @@ function groupEntriesByTime(entries: ThesaurusEntry[]): TimeGroup[] {
     }
   }
 
-  return groups.filter((g) => g.entries.length > 0);
+  const nonEmpty = groups.filter((g) => g.entries.length > 0);
+
+  // If only one time group has entries, use a generic label
+  if (nonEmpty.length === 1) {
+    nonEmpty[0].label = "Previous lookups";
+  }
+
+  return nonEmpty;
 }
 
 export default function ThesaurusPage() {
