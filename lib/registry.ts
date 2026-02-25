@@ -18,4 +18,10 @@ export const applets: Applet[] = [
     icon: "🌍",
     path: "/applets/translator",
   },
+  {
+    name: "Thesaurus",
+    description: "Find semantic synonyms for any word or phrase",
+    icon: "📖",
+    path: "/applets/thesaurus",
+  },
 ];
