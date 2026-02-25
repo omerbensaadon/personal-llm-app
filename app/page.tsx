@@ -36,7 +36,7 @@ export default function HomePage() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, 100px)",
+          gridTemplateColumns: "repeat(auto-fit, 100px)",
           gap: "32px",
           justifyContent: "center",
           maxWidth: "500px",
