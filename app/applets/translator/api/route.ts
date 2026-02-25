@@ -6,6 +6,7 @@ import { streamText } from "ai";
 
 const API_LIMIT = 20; // max requests
 const API_WINDOW_MS = 60 * 1000; // per minute
+const MODEL_ID = "claude-sonnet-4-20250514";
 
 export async function POST(req: Request) {
   const ip =
@@ -24,22 +25,41 @@ export async function POST(req: Request) {
   }
 
   const { prompt, language } = await req.json();
+  const systemPrompt = getPrompt("translator");
+  const userPrompt = `Target language: ${language}\n\nText to translate:\n${prompt}`;
+  const traceId = crypto.randomUUID();
+  const startTime = Date.now();
 
   const posthog = getPostHogClient();
-  posthog.capture({
-    distinctId: ip,
-    event: "translation_api_request",
-    properties: {
-      target_language: language,
-      input_length: prompt?.length || 0,
-      applet: "translator",
-    },
-  });
 
   const result = streamText({
     model: getModel(),
-    system: getPrompt("translator"),
-    prompt: `Target language: ${language}\n\nText to translate:\n${prompt}`,
+    system: systemPrompt,
+    prompt: userPrompt,
+    onFinish: ({ text, usage }) => {
+      const latencySeconds = (Date.now() - startTime) / 1000;
+      posthog.capture({
+        distinctId: ip,
+        event: "$ai_generation",
+        properties: {
+          $ai_trace_id: traceId,
+          $ai_model: MODEL_ID,
+          $ai_provider: "anthropic",
+          $ai_stream: true,
+          $ai_latency: latencySeconds,
+          $ai_input_tokens: usage.inputTokens,
+          $ai_output_tokens: usage.outputTokens,
+          $ai_input: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          $ai_output_choices: [{ role: "assistant", content: text }],
+          $ai_http_status: 200,
+          applet: "translator",
+          target_language: language,
+        },
+      });
+    },
   });
 
   return result.toTextStreamResponse();
