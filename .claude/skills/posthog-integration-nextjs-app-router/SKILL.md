@@ -24,6 +24,7 @@ Follow these steps in order to complete the integration:
 - `EXAMPLE.md` - Next.js App Router example project code
 - `next-js.md` - Next.js - docs
 - `identify-users.md` - Identify users - docs
+- `llm-analytics.md` - LLM Analytics - docs (for AI/LLM applications)
 - `basic-integration-1.0-begin.md` - PostHog setup - begin
 - `basic-integration-1.1-edit.md` - PostHog setup - edit
 - `basic-integration-1.2-revise.md` - PostHog setup - revise
@@ -55,6 +56,15 @@ The example project shows the target implementation pattern. Consult the documen
 ## Identifying users
 
 Identify users during login and signup events. Refer to the example code and documentation for the correct identify pattern for this framework. If both frontend and backend code exist, pass the client-side session and distinct ID using `X-POSTHOG-DISTINCT-ID` and `X-POSTHOG-SESSION-ID` headers to maintain correlation.
+
+## LLM Analytics (for AI applications)
+
+If the project makes LLM API calls (e.g., via Vercel AI SDK, OpenAI, Anthropic), **do NOT use custom event names** for tracking those calls. PostHog's LLM Analytics dashboard only recognizes `$ai_generation` events with specific `$ai_*` properties.
+
+- Use `$ai_generation` as the event name for every LLM call
+- Include required properties: `$ai_trace_id`, `$ai_model`, `$ai_provider`
+- Capture the event **after** the LLM call completes (in `onFinish` for streaming, or after `await` for non-streaming) to get actual token usage and output
+- See `llm-analytics.md` for the full property schema, code examples, and common mistakes
 
 ## Error tracking
 
