@@ -15,6 +15,7 @@ interface ThesaurusEntry {
   id: string;
   word: string;
   attempts: ThesaurusAttempt[];
+  createdAt?: number;
 }
 
 const STORAGE_KEY = "thesaurus_entries";
@@ -37,6 +38,40 @@ function saveEntries(entries: ThesaurusEntry[]) {
   }
 }
 
+function getEntryTime(entry: ThesaurusEntry): number {
+  if (entry.createdAt) return entry.createdAt;
+  if (entry.attempts.length > 0) return entry.attempts[0].timestamp;
+  const match = entry.id.match(/entry-(\d+)/);
+  return match ? parseInt(match[1]) : Date.now();
+}
+
+type TimeGroup = { label: string; entries: ThesaurusEntry[] };
+
+function groupEntriesByTime(entries: ThesaurusEntry[]): TimeGroup[] {
+  const now = Date.now();
+  const threeHours = 3 * 60 * 60 * 1000;
+  const sevenDays = 7 * 24 * 60 * 60 * 1000;
+
+  const groups: TimeGroup[] = [
+    { label: "In the last few hours", entries: [] },
+    { label: "In the last few days", entries: [] },
+    { label: "In the last few weeks", entries: [] },
+  ];
+
+  for (const entry of entries) {
+    const age = now - getEntryTime(entry);
+    if (age < threeHours) {
+      groups[0].entries.push(entry);
+    } else if (age < sevenDays) {
+      groups[1].entries.push(entry);
+    } else {
+      groups[2].entries.push(entry);
+    }
+  }
+
+  return groups.filter((g) => g.entries.length > 0);
+}
+
 export default function ThesaurusPage() {
   const [entries, setEntries] = useState<ThesaurusEntry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -45,8 +80,19 @@ export default function ThesaurusPage() {
   const [refinementInput, setRefinementInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [streamingText, setStreamingText] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showNewWordModal, setShowNewWordModal] = useState(false);
+  const [modalInput, setModalInput] = useState("");
   const abortRef = useRef<AbortController | null>(null);
+  const modalInputRef = useRef<HTMLInputElement>(null);
+  const lookupInputRef = useRef<HTMLInputElement>(null);
 
+  // Set document title
+  useEffect(() => {
+    document.title = "Thesaurus";
+  }, []);
+
+  // Load entries from localStorage
   useEffect(() => {
     const loaded = loadEntries();
     setEntries(loaded);
@@ -56,12 +102,41 @@ export default function ThesaurusPage() {
     }
   }, []);
 
+  // Ctrl+N and Escape handler
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "n") {
+        e.preventDefault();
+        setShowNewWordModal(true);
+        setModalInput("");
+      }
+      if (e.key === "Escape" && showNewWordModal) {
+        setShowNewWordModal(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showNewWordModal]);
+
+  // Focus modal input when shown
+  useEffect(() => {
+    if (showNewWordModal) {
+      setTimeout(() => modalInputRef.current?.focus(), 0);
+    }
+  }, [showNewWordModal]);
+
   const selectedEntry = entries.find((e) => e.id === selectedId) ?? null;
   const totalAttempts = selectedEntry?.attempts.length ?? 0;
   const safeAttemptIndex = Math.min(viewAttemptIndex, Math.max(0, totalAttempts - 1));
   const currentAttempt = selectedEntry?.attempts[safeAttemptIndex] ?? null;
   const displayText = isLoading ? streamingText : (currentAttempt?.result ?? "");
   const showResults = selectedEntry !== null && (isLoading || displayText !== "");
+  const isNewPage = selectedId === null;
+
+  const filteredEntries = entries.filter((e) =>
+    e.word.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  const groupedEntries = groupEntriesByTime(filteredEntries);
 
   function handleSelectEntry(entry: ThesaurusEntry) {
     if (isLoading) {
@@ -112,15 +187,18 @@ export default function ThesaurusPage() {
     }
   }
 
-  async function handleLookup(e: React.FormEvent) {
-    e.preventDefault();
-    const word = wordInput.trim();
+  async function doLookup(word: string) {
     if (!word || isLoading) return;
 
     posthog.capture("thesaurus_lookup", { word_length: word.length });
 
     const entryId = `entry-${Date.now()}`;
-    const newEntry: ThesaurusEntry = { id: entryId, word, attempts: [] };
+    const newEntry: ThesaurusEntry = {
+      id: entryId,
+      word,
+      attempts: [],
+      createdAt: Date.now(),
+    };
 
     setEntries((prev) => [newEntry, ...prev]);
     setSelectedId(entryId);
@@ -152,6 +230,31 @@ export default function ThesaurusPage() {
     setIsLoading(false);
   }
 
+  function handleLookup(e: React.FormEvent) {
+    e.preventDefault();
+    doLookup(wordInput.trim());
+  }
+
+  function handleModalLookup(e: React.FormEvent) {
+    e.preventDefault();
+    const word = modalInput.trim();
+    if (!word) return;
+    setShowNewWordModal(false);
+    doLookup(word);
+  }
+
+  function handleNewPage() {
+    if (isLoading) {
+      abortRef.current?.abort();
+      setIsLoading(false);
+      setStreamingText("");
+    }
+    setSelectedId(null);
+    setWordInput("");
+    setRefinementInput("");
+    setTimeout(() => lookupInputRef.current?.focus(), 0);
+  }
+
   async function handleRefine(e: React.FormEvent) {
     e.preventDefault();
     const refinement = refinementInput.trim();
@@ -159,8 +262,6 @@ export default function ThesaurusPage() {
 
     posthog.capture("thesaurus_refine", { refinement_length: refinement.length });
 
-    // Build full conversation history from the original word through all past attempts.
-    // Each attempt's .refinement is the user message that generated that attempt (empty for the first).
     const messages: { role: string; content: string }[] = [
       { role: "user", content: selectedEntry.word },
     ];
@@ -240,63 +341,91 @@ export default function ThesaurusPage() {
             flexShrink: 0,
             borderRight: "1px solid var(--border-color)",
             overflowY: "auto",
-            padding: "20px 0",
+            padding: "12px 0",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
-          <div
-            style={{
-              fontSize: "0.65em",
-              fontWeight: 600,
-              color: "var(--muted-color)",
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-              padding: "0 14px 10px",
-            }}
-          >
-            History
+          {/* Search input */}
+          <div style={{ padding: "0 10px 8px" }}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search..."
+              style={{
+                width: "100%",
+                padding: "5px 8px",
+                border: "1px solid var(--border-color)",
+                borderRadius: "4px",
+                backgroundColor: "var(--background-color)",
+                color: "var(--text-color)",
+                fontFamily: "inherit",
+                fontSize: "0.7em",
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+              onFocus={(e) => (e.target.style.borderColor = "var(--heading-color)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--border-color)")}
+            />
           </div>
-          {entries.map((entry) => {
-            const isSelected = entry.id === selectedId;
-            return (
-              <button
-                key={entry.id}
-                onClick={() => handleSelectEntry(entry)}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "7px 14px",
-                  background: isSelected ? "var(--code-background-color)" : "transparent",
-                  border: "none",
-                  borderLeft: isSelected
-                    ? "3px solid var(--heading-color)"
-                    : "3px solid transparent",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  transition: "background 0.15s ease",
-                  overflow: "hidden",
-                }}
-              >
+
+          {/* Grouped entries */}
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            {groupedEntries.map((group) => (
+              <div key={group.label}>
                 <div
                   style={{
-                    fontSize: "0.82em",
-                    color: isSelected ? "var(--text-color)" : "var(--muted-color)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    fontWeight: isSelected ? 500 : 400,
+                    fontSize: "0.6em",
+                    fontWeight: 600,
+                    color: "var(--muted-color)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    padding: "8px 14px 4px",
                   }}
                 >
-                  {entry.word}
+                  {group.label}
                 </div>
-                {entry.attempts.length > 1 && (
-                  <div style={{ fontSize: "0.7em", color: "var(--muted-color)", marginTop: "1px" }}>
-                    {entry.attempts.length} attempts
-                  </div>
-                )}
-              </button>
-            );
-          })}
+                {group.entries.map((entry) => {
+                  const isSelected = entry.id === selectedId;
+                  return (
+                    <button
+                      key={entry.id}
+                      onClick={() => handleSelectEntry(entry)}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "5px 14px",
+                        background: isSelected ? "var(--code-background-color)" : "transparent",
+                        border: "none",
+                        borderLeft: isSelected
+                          ? "3px solid var(--heading-color)"
+                          : "3px solid transparent",
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        transition: "background 0.15s ease",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "0.75em",
+                          color: isSelected ? "var(--text-color)" : "var(--muted-color)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          fontWeight: isSelected ? 500 : 400,
+                        }}
+                      >
+                        {entry.word}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </aside>
       )}
 
@@ -330,49 +459,52 @@ export default function ThesaurusPage() {
           </p>
         </div>
 
-        {/* Lookup form */}
-        <form onSubmit={handleLookup} style={{ display: "flex", gap: "8px", alignItems: "stretch" }}>
-          <input
-            type="text"
-            value={wordInput}
-            onChange={(e) => setWordInput(e.target.value)}
-            placeholder="Enter a word or phrase..."
-            disabled={isLoading}
-            style={{
-              flex: 1,
-              padding: "10px 14px",
-              border: "2px solid var(--border-color)",
-              borderRadius: "6px",
-              backgroundColor: "var(--background-color)",
-              color: "var(--text-color)",
-              fontFamily: "inherit",
-              fontSize: "0.85em",
-              outline: "none",
-              transition: "border-color 0.2s ease",
-            }}
-            onFocus={(e) => (e.target.style.borderColor = "var(--heading-color)")}
-            onBlur={(e) => (e.target.style.borderColor = "var(--border-color)")}
-          />
-          <button
-            type="submit"
-            disabled={!wordInput.trim() || isLoading}
-            style={{
-              padding: "10px 20px",
-              backgroundColor:
-                wordInput.trim() && !isLoading ? "var(--heading-color)" : "var(--border-color)",
-              color: "#fff",
-              border: "none",
-              borderRadius: "6px",
-              fontWeight: 500,
-              fontSize: "0.85em",
-              cursor: wordInput.trim() && !isLoading ? "pointer" : "default",
-              fontFamily: "inherit",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Look Up
-          </button>
-        </form>
+        {/* Lookup form — shown only when no entry is selected (new page or first visit) */}
+        {isNewPage && (
+          <form onSubmit={handleLookup} style={{ display: "flex", gap: "8px", alignItems: "stretch" }}>
+            <input
+              ref={lookupInputRef}
+              type="text"
+              value={wordInput}
+              onChange={(e) => setWordInput(e.target.value)}
+              placeholder="Enter a word or phrase..."
+              disabled={isLoading}
+              style={{
+                flex: 1,
+                padding: "10px 14px",
+                border: "2px solid var(--border-color)",
+                borderRadius: "6px",
+                backgroundColor: "var(--background-color)",
+                color: "var(--text-color)",
+                fontFamily: "inherit",
+                fontSize: "0.85em",
+                outline: "none",
+                transition: "border-color 0.2s ease",
+              }}
+              onFocus={(e) => (e.target.style.borderColor = "var(--heading-color)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--border-color)")}
+            />
+            <button
+              type="submit"
+              disabled={!wordInput.trim() || isLoading}
+              style={{
+                padding: "10px 20px",
+                backgroundColor:
+                  wordInput.trim() && !isLoading ? "var(--heading-color)" : "var(--border-color)",
+                color: "#fff",
+                border: "none",
+                borderRadius: "6px",
+                fontWeight: 500,
+                fontSize: "0.85em",
+                cursor: wordInput.trim() && !isLoading ? "pointer" : "default",
+                fontFamily: "inherit",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Look Up
+            </button>
+          </form>
+        )}
 
         {/* Results section */}
         {showResults && selectedEntry && (
@@ -580,6 +712,119 @@ export default function ThesaurusPage() {
           </div>
         )}
       </div>
+
+      {/* Orange "+" FAB — new lookup */}
+      <button
+        type="button"
+        onClick={handleNewPage}
+        disabled={isNewPage}
+        title="New lookup"
+        style={{
+          position: "fixed",
+          bottom: "24px",
+          right: "24px",
+          width: "48px",
+          height: "48px",
+          borderRadius: "50%",
+          border: "none",
+          backgroundColor: isNewPage ? "var(--border-color)" : "var(--heading-color)",
+          color: "#fff",
+          fontSize: "1.5em",
+          fontWeight: 300,
+          cursor: isNewPage ? "default" : "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: isNewPage ? "none" : "0 2px 8px rgba(0,0,0,0.2)",
+          transition: "background-color 0.2s ease, box-shadow 0.2s ease",
+          zIndex: 100,
+        }}
+      >
+        +
+      </button>
+
+      {/* Ctrl+N modal */}
+      {showNewWordModal && (
+        <div
+          onClick={() => setShowNewWordModal(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 200,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: "var(--background-color)",
+              border: "1px solid var(--border-color)",
+              borderRadius: "10px",
+              padding: "24px",
+              width: "400px",
+              maxWidth: "90vw",
+              boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
+            }}
+          >
+            <h2
+              style={{
+                fontSize: "0.95em",
+                fontWeight: 600,
+                color: "var(--heading-color)",
+                margin: "0 0 16px 0",
+              }}
+            >
+              New Lookup
+            </h2>
+            <form onSubmit={handleModalLookup} style={{ display: "flex", gap: "8px" }}>
+              <input
+                ref={modalInputRef}
+                type="text"
+                value={modalInput}
+                onChange={(e) => setModalInput(e.target.value)}
+                placeholder="Enter a word or phrase..."
+                style={{
+                  flex: 1,
+                  padding: "10px 14px",
+                  border: "2px solid var(--border-color)",
+                  borderRadius: "6px",
+                  backgroundColor: "var(--background-color)",
+                  color: "var(--text-color)",
+                  fontFamily: "inherit",
+                  fontSize: "0.85em",
+                  outline: "none",
+                  transition: "border-color 0.2s ease",
+                }}
+                onFocus={(e) => (e.target.style.borderColor = "var(--heading-color)")}
+                onBlur={(e) => (e.target.style.borderColor = "var(--border-color)")}
+              />
+              <button
+                type="submit"
+                disabled={!modalInput.trim()}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor: modalInput.trim()
+                    ? "var(--heading-color)"
+                    : "var(--border-color)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "6px",
+                  fontWeight: 500,
+                  fontSize: "0.85em",
+                  cursor: modalInput.trim() ? "pointer" : "default",
+                  fontFamily: "inherit",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Look Up
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
