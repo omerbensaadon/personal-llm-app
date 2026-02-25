@@ -16,10 +16,11 @@ The wizard has completed a deep integration of PostHog analytics into your LLM U
 | `login_failed` | User authentication fails due to wrong password or rate limit (server-side) | `app/login/actions.ts` |
 | `chat_message_sent` | User sends a message in the chat applet | `app/applets/chat/page.tsx` |
 | `chat_response_stopped` | User stops the AI response generation in chat | `app/applets/chat/page.tsx` |
-| `chat_api_request` | Chat API receives a message request (server-side) | `app/applets/chat/api/route.ts` |
+| `$ai_generation` | LLM generation event for chat API (server-side, captured in onFinish) | `app/applets/chat/api/route.ts` |
 | `translation_submitted` | User submits text for translation | `app/applets/translator/page.tsx` |
 | `translation_stopped` | User stops the translation in progress | `app/applets/translator/page.tsx` |
-| `translation_api_request` | Translation API receives a request with target language (server-side) | `app/applets/translator/api/route.ts` |
+| `$ai_generation` | LLM generation event for translation API (server-side, captured in onFinish) | `app/applets/translator/api/route.ts` |
+| `$ai_generation` | LLM generation event for thesaurus API (server-side, captured in onFinish) | `app/applets/thesaurus/api/route.ts` |
 | `prompt_viewed` | User opens the system prompt viewer | `app/applets/prompt-viewer.tsx` |
 | `applet_selected` | User clicks on an applet from the home page | `app/applet-link.tsx` |
 
